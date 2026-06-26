@@ -4,6 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>STime - 勉強のお供のタイマー</title>
+
+  <!-- === Apple / iOS用ホーム画面アイコン＆ウェブアプリ設定 === -->
+  <!-- ホーム画面に追加した際のアプリアイコン（ローカルファイル STime_AppIcon.png を指定） -->
+  <link rel="apple-touch-icon" href="STime_AppIcon.png">
+  <!-- 通常のブラウザタブ用ファビコン（ローカルファイル STime_AppIcon.png を指定） -->
+  <link rel="icon" type="image/png" href="STime_AppIcon.png">
+  
+  <!-- アプリとしてフルスクリーン起動を許可 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <!-- ステータスバーのデザイン（ダークテーマに調和する半透明ブラック） -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- ホーム画面に追加した際のアプリアプリ名 -->
+  <meta name="apple-mobile-web-app-title" content="STime">
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -59,8 +73,12 @@
   <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-darkcard/80 backdrop-blur sticky top-0 z-50 transition-colors">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <div class="p-2 bg-brand-500 text-white rounded-xl shadow-lg shadow-brand-500/20">
-          <i data-lucide="hourglass" class="w-6 h-6 animate-pulse"></i>
+        <!-- アプリアイコンをヘッダーの左上に配置（ローカルファイル STime_AppIcon.png から読み込み、画像読み込みエラー時はプレースホルダーとしてアイコンを表示） -->
+        <div class="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-brand-500/10 border border-slate-200 dark:border-slate-700 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+          <img src="STime_AppIcon.png" alt="STime Icon" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div class="hidden w-full h-full items-center justify-center text-brand-500">
+            <i data-lucide="hourglass" class="w-5 h-5 animate-pulse"></i>
+          </div>
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-brand-500 to-indigo-500 bg-clip-text text-transparent">STime</h1>
@@ -586,8 +604,8 @@
       state.timer.isRunning = true;
       state.timer.startTime = Date.now(); // スタートした瞬間を打刻
       
-      startIcon.classList.add('hidden');
-      pauseIcon.classList.remove('hidden');
+      startIcon.classList.remove('hidden');
+      pauseIcon.classList.add('hidden');
       startStopText.textContent = "一時停止";
       startStopBtn.className = "flex-[1.5] py-3 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all";
 
@@ -655,6 +673,9 @@
         updateStats(finalSec);
       }
     }
+
+    // PWAなどのスタンドアロン起動の際、クリック領域をスムーズにするためにタッチバグを緩和
+    document.addEventListener('touchstart', function() {}, {passive: true});
 
     function resetTimer() {
       clearInterval(state.timer.intervalId);
