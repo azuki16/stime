@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STime - 勉強のお供のタイマー</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              200: '#ddd6fe',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+            },
+            darkbg: '#0f172a',
+            darkcard: '#1e293b'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts & Lucide Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-darkbg dark:text-slate-100 min-h-screen flex flex-col">
+
+  <!-- ヘッダー -->
+  <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-darkcard/80 backdrop-blur sticky top-0 z-50 transition-colors">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-brand-500 text-white rounded-xl shadow-lg shadow-brand-500/20">
+          <i data-lucide="hourglass" class="w-6 h-6 animate-pulse"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-brand-500 to-indigo-500 bg-clip-text text-transparent">STime</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">勉強のお供のタイマー</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <!-- 音声ミュートステータス表示 -->
+        <span id="audio-indicator" class="hidden text-xs px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center gap-1">
+          <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+          BGM再生中
+        </span>
+
+        <!-- テーマ切り替えボタン -->
+        <button id="theme-toggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors" title="テーマ切り替え">
+          <i data-lucide="sun" id="sun-icon" class="w-5 h-5 hidden"></i>
+          <i data-lucide="moon" id="moon-icon" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- 左側カラム: タイマーとBGMコントロール (7カラム分) -->
+    <section class="lg:col-span-7 space-y-6">
+      
+      <!-- タイマーモード切り替え -->
+      <div class="bg-white dark:bg-darkcard p-1.5 rounded-2xl flex border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+        <button id="mode-normal-btn" class="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all bg-brand-500 text-white shadow-sm">
+          <i data-lucide="timer" class="w-4 h-4"></i>
+          通常タイマー
+        </button>
+        <button id="mode-pomodoro-btn" class="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+          <i data-lucide="brain-circuit" class="w-4 h-4"></i>
+          ポモドーロ
+        </button>
+      </div>
+
+      <!-- タイマー表示本体 -->
+      <div class="bg-white dark:bg-darkcard rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden transition-colors">
+        
+        <!-- ポモドーロ用のフェーズバッジ -->
+        <div id="pomo-status-container" class="hidden justify-center mb-4">
+          <span id="pomo-phase-badge" class="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider flex items-center gap-2">
+            <!-- 動的に変更 -->
+          </span>
+        </div>
+
+        <!-- タイマー時間表示 -->
+        <div class="text-center py-6">
+          <div id="timer-display" class="text-6xl md:text-8xl font-light tracking-tight font-mono text-slate-800 dark:text-slate-100 drop-shadow-sm select-none">
+            00:00:00
+          </div>
+          <p id="timer-status" class="text-sm text-slate-400 mt-2 font-medium">待機中</p>
+        </div>
+
+        <!-- 勉強メモ & 科目設定 -->
+        <div id="timer-meta-container" class="space-y-3 max-w-md mx-auto mb-6">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">勉強している科目・内容</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                <i data-lucide="book-open" class="w-4 h-4"></i>
+              </span>
+              <input type="text" id="subject-input" placeholder="例: 数学 微積分、英語 リーディング..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 focus:ring-2 focus:ring-brand-500 outline-none text-sm transition-all">
+            </div>
+          </div>
+        </div>
+
+        <!-- 操作ボタン群 -->
+        <div class="space-y-4 max-w-md mx-auto">
+          <div class="flex items-center justify-center gap-4">
+            <!-- リセット/中止 -->
+            <button id="reset-btn" class="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-semibold flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+              リセット
+            </button>
+            <!-- スタート/ストップ -->
+            <button id="start-stop-btn" class="flex-[1.5] py-3 px-6 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25 transition-all">
+              <i data-lucide="play" id="start-icon" class="w-5 h-5"></i>
+              <i data-lucide="pause" id="pause-icon" class="w-5 h-5 hidden"></i>
+              <span id="start-stop-text">計測開始</span>
+            </button>
+          </div>
+
+          <!-- 保存ボタン（通常タイマー用、またはポモドーロの一時中断保存用） -->
+          <div id="save-action-container" class="w-full">
+            <button id="save-time-btn" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 transition-all">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              勉強時間を保存して記録する
+            </button>
+          </div>
+        </div>
+
+        <!-- ポモドーロ時の設定表示（ポモドーロ時のみ有効） -->
+        <div id="pomo-settings-info" class="hidden text-center mt-6 text-xs text-slate-400 border-t border-slate-100 dark:border-slate-800/50 pt-4">
+          <p>ポモドーロサイクル: <span class="text-brand-500 font-bold">25分勉強 ➔ 5分休憩</span></p>
+          <p class="mt-1">完了すると通知音が鳴り、自動で次のフェーズに切り替わります</p>
+        </div>
+      </div>
+
+      <!-- 集中BGM (自然音) コントローラー -->
+      <div class="bg-white dark:bg-darkcard rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+        <h3 class="text-sm font-bold tracking-wider uppercase text-slate-400 mb-4 flex items-center gap-2">
+          <i data-lucide="music" class="w-4 h-4 text-brand-500"></i>
+          集中BGM (環境音)
+        </h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">勉強に集中するためのホワイトノイズや環境音を再生します。複数の音を重ねることもできます。</p>
+
+        <div class="grid grid-cols-2 gap-3">
+          <!-- ホワイトノイズ -->
+          <div class="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-semibold">ホワイトノイズ</span>
+              <button data-sound="white" class="sound-toggle-btn p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="volume-2" class="w-3 h-3 text-slate-400"></i>
+              <input type="range" data-volume="white" min="0" max="1" step="0.05" value="0.5" class="w-full accent-brand-500 h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+          </div>
+
+          <!-- 雨の音 -->
+          <div class="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-semibold">雨の音</span>
+              <button data-sound="rain" class="sound-toggle-btn p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="volume-2" class="w-3 h-3 text-slate-400"></i>
+              <input type="range" data-volume="rain" min="0" max="1" step="0.05" value="0.5" class="w-full accent-brand-500 h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+          </div>
+
+          <!-- カフェの雑音 -->
+          <div class="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-semibold">カフェの雑音</span>
+              <button data-sound="cafe" class="sound-toggle-btn p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="volume-2" class="w-3 h-3 text-slate-400"></i>
+              <input type="range" data-volume="cafe" min="0" max="1" step="0.05" value="0.5" class="w-full accent-brand-500 h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+          </div>
+
+          <!-- 森の環境音 -->
+          <div class="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-semibold">森のさえずり</span>
+              <button data-sound="forest" class="sound-toggle-btn p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="volume-2" class="w-3 h-3 text-slate-400"></i>
+              <input type="range" data-volume="forest" min="0" max="1" step="0.05" value="0.5" class="w-full accent-brand-500 h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右側カラム: 統計・カレンダーギャラリー・セーブ (5カラム分) -->
+    <section class="lg:col-span-5 space-y-6">
+      
+      <!-- 本日の勉強状況 -->
+      <div class="bg-gradient-to-br from-brand-600 to-indigo-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+        <div class="absolute right-0 bottom-0 translate-x-10 translate-y-10 opacity-10">
+          <i data-lucide="graduation-cap" class="w-48 h-48"></i>
+        </div>
+        <span class="text-xs font-bold tracking-wider uppercase text-brand-100/80">Today's Focus</span>
+        <h3 class="text-2xl font-bold mt-1">今日の勉強時間</h3>
+        
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="today-total-time" class="text-4xl font-extrabold tracking-tight">0時間00分</span>
+        </div>
+
+        <div class="mt-6 border-t border-white/10 pt-4 flex justify-between items-center">
+          <div>
+            <p class="text-xs text-brand-200">今日の完了セッション</p>
+            <p id="today-session-count" class="text-sm font-semibold">0回</p>
+          </div>
+          <div>
+            <p class="text-xs text-brand-200">最新の記録</p>
+            <p id="latest-subject" class="text-sm font-semibold truncate max-w-[120px]">なし</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- カレンダーギャラリー & トータル統計 -->
+      <div class="bg-white dark:bg-darkcard rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+        
+        <!-- ギャラリー上部のトータル統計情報 -->
+        <div class="mb-6 grid grid-cols-2 gap-4">
+          <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80">
+            <span class="text-xs text-slate-400 block mb-1">今月の総勉強時間</span>
+            <span id="month-total-time" class="text-lg font-bold text-brand-500">0時間00分</span>
+          </div>
+          <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80">
+            <span class="text-xs text-slate-400 block mb-1">今までの累計時間</span>
+            <span id="all-time-total" class="text-lg font-bold text-indigo-500">0時間00分</span>
+          </div>
+        </div>
+
+        <!-- カレンダー見出し & ナビゲーション -->
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-sm font-bold tracking-wider uppercase text-slate-400 flex items-center gap-2">
+            <i data-lucide="calendar" class="w-4 h-4 text-brand-500"></i>
+            学習カレンダー
+          </h3>
+          <div class="flex items-center gap-2">
+            <button id="prev-month-btn" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors">
+              <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+            <span id="calendar-current-month" class="text-xs font-semibold">2026年 6月</span>
+            <button id="next-month-btn" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors">
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- カレンダーグリッド -->
+        <div>
+          <!-- 曜日ヘッダー -->
+          <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 mb-2">
+            <div>日</div>
+            <div>月</div>
+            <div>火</div>
+            <div>水</div>
+            <div>木</div>
+            <div>金</div>
+            <div>土</div>
+          </div>
+          <!-- 日付セル (JavaScriptで生成) -->
+          <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center"></div>
+        </div>
+      </div>
+
+      <!-- 保存とインポート/エクスポート -->
+      <div class="bg-white dark:bg-darkcard rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+        <h3 class="text-sm font-bold tracking-wider uppercase text-slate-400 mb-4 flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4 text-brand-500"></i>
+          データの保存・移行
+        </h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">学習データはブラウザに自動保存されます。他のデバイスへ引き継ぐ場合はファイルとして保存・読み込みしてください。</p>
+        
+        <div class="grid grid-cols-2 gap-3">
+          <!-- エクスポート -->
+          <button id="export-btn" class="py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            ファイルとして保存
+          </button>
+          
+          <!-- インポート -->
+          <label for="import-file" class="py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            ファイルから復元
+          </label>
+          <input type="file" id="import-file" class="hidden" accept=".json">
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- フッター -->
+  <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-400 bg-white dark:bg-slate-900 transition-colors">
+    <p>© 2026 STime - 勉強のお供のタイマー. All rights reserved.</p>
+  </footer>
+
+  <!-- カスタム通知トースト -->
+  <div id="toast" class="fixed bottom-6 right-6 p-4 rounded-2xl shadow-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-slate-800 dark:border-slate-100 flex items-center gap-3 transform translate-y-24 opacity-0 transition-all duration-300 z-[100] max-w-sm">
+    <div class="p-1 bg-brand-500 text-white rounded-lg">
+      <i data-lucide="info" class="w-5 h-5"></i>
+    </div>
+    <div>
+      <h4 id="toast-title" class="font-bold text-sm">通知</h4>
+      <p id="toast-message" class="text-xs text-slate-400 dark:text-slate-500">メッセージがここに入ります。</p>
+    </div>
+  </div>
+
+  <script>
+    // --- 定数および状態管理 ---
+    const APP_VERSION = "1.0.1"; // 修正を反映したマイナーアップデート
+    
+    // アプリの状態
+    const state = {
+      theme: 'dark', // デフォルトはダークテーマ
+      mode: 'normal', // 'normal' または 'pomodoro'
+      timer: {
+        seconds: 0,
+        isRunning: false,
+        intervalId: null,
+        startTime: null,      // 現在のスタート/再開時の絶対時間
+        accumulatedMs: 0      // これまでに一時停止を挟んで蓄積されたミリ秒
+      },
+      pomodoro: {
+        phase: 'work', // 'work' (25分) または 'break' (5分)
+        workDuration: 25 * 60, // 25分
+        breakDuration: 5 * 60, // 5分
+        cyclesCompleted: 0
+      },
+      history: {}, // 日付(YYYY-MM-DD)ごとの勉強履歴。 { '2026-06-26': { totalSeconds: 3600, logs: [...] } }
+      currentDate: new Date() // カレンダー表示用カレントデート
+    };
+
+    // 音声コンテキスト（BGM用）
+    let audioCtx = null;
+    const activeSounds = {
+      white: { node: null, gain: null, isPlaying: false },
+      rain: { node: null, gain: null, isPlaying: false },
+      cafe: { node: null, gain: null, isPlaying: false },
+      forest: { node: null, gain: null, isPlaying: false }
+    };
+
+    // --- DOM要素取得 ---
+    const timerDisplay = document.getElementById('timer-display');
+    const timerStatus = document.getElementById('timer-status');
+    const startStopBtn = document.getElementById('start-stop-btn');
+    const startIcon = document.getElementById('start-icon');
+    const pauseIcon = document.getElementById('pause-icon');
+    const startStopText = document.getElementById('start-stop-text');
+    const resetBtn = document.getElementById('reset-btn');
+    const saveTimeBtn = document.getElementById('save-time-btn');
+    const subjectInput = document.getElementById('subject-input');
+    const timerMetaContainer = document.getElementById('timer-meta-container');
+    const pomoStatusContainer = document.getElementById('pomo-status-container');
+    const pomoPhaseBadge = document.getElementById('pomo-phase-badge');
+    const pomoSettingsInfo = document.getElementById('pomo-settings-info');
+    
+    const modeNormalBtn = document.getElementById('mode-normal-btn');
+    const modePomodoroBtn = document.getElementById('mode-pomodoro-btn');
+    
+    const todayTotalTime = document.getElementById('today-total-time');
+    const todaySessionCount = document.getElementById('today-session-count');
+    const latestSubject = document.getElementById('latest-subject');
+    
+    const monthTotalTime = document.getElementById('month-total-time');
+    const allTimeTotal = document.getElementById('all-time-total');
+    const calendarCurrentMonth = document.getElementById('calendar-current-month');
+    const calendarGrid = document.getElementById('calendar-grid');
+    const prevMonthBtn = document.getElementById('prev-month-btn');
+    const nextMonthBtn = document.getElementById('next-month-btn');
+    
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+    
+    const toast = document.getElementById('toast');
+    const toastTitle = document.getElementById('toast-title');
+    const toastMessage = document.getElementById('toast-message');
+    const audioIndicator = document.getElementById('audio-indicator');
+    
+    const exportBtn = document.getElementById('export-btn');
+    const importFileInput = document.getElementById('import-file');
+
+    // --- 初期化処理 ---
+    window.onload = function() {
+      // アイコン初期化
+      lucide.createIcons();
+      
+      // 保存データ、テーマの読み込み
+      loadDataFromLocalStorage();
+      applyTheme();
+      updateStats(0); // アクティブタイマーは最初0秒
+      renderCalendar();
+      updateTimerDisplay();
+
+      // イベントリスナー設定
+      themeToggleBtn.addEventListener('click', toggleTheme);
+      modeNormalBtn.addEventListener('click', () => switchMode('normal'));
+      modePomodoroBtn.addEventListener('click', () => switchMode('pomodoro'));
+      startStopBtn.addEventListener('click', toggleTimer);
+      resetBtn.addEventListener('click', resetTimer);
+      saveTimeBtn.addEventListener('click', handleSaveButtonClick);
+      
+      prevMonthBtn.addEventListener('click', () => navigateMonth(-1));
+      nextMonthBtn.addEventListener('click', () => navigateMonth(1));
+      
+      exportBtn.addEventListener('click', exportDataToFile);
+      importFileInput.addEventListener('change', importDataFromFile);
+
+      // BGMトグルイベント
+      document.querySelectorAll('.sound-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const soundKey = btn.getAttribute('data-sound');
+          toggleSound(soundKey, btn);
+        });
+      });
+
+      // BGM音量調節イベント
+      document.querySelectorAll('input[data-volume]').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const soundKey = input.getAttribute('data-volume');
+          setSoundVolume(soundKey, parseFloat(e.target.value));
+        });
+      });
+    };
+
+    // --- トースト通知機能 ---
+    function showToast(title, message, duration = 4000) {
+      toastTitle.textContent = title;
+      toastMessage.textContent = message;
+      
+      toast.classList.remove('translate-y-24', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-24', 'opacity-0');
+      }, duration);
+    }
+
+    // --- テーマ制御 ---
+    function applyTheme() {
+      const html = document.documentElement;
+      if (state.theme === 'dark') {
+        html.classList.add('dark');
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+      } else {
+        html.classList.remove('dark');
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+      }
+    }
+
+    function toggleTheme() {
+      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+      applyTheme();
+      saveDataToLocalStorage();
+    }
+
+    // --- タイマー切り替え (通常 vs ポモドーロ) ---
+    function switchMode(newMode) {
+      if (state.timer.isRunning) {
+        if (!confirm('現在計測中です。モードを切り替えると計測がリセットされますが、よろしいですか？')) {
+          return;
+        }
+      }
+      
+      resetTimer();
+      state.mode = newMode;
+
+      if (newMode === 'normal') {
+        modeNormalBtn.className = "flex-1 py-2.5 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all bg-brand-500 text-white shadow-sm";
+        modePomodoroBtn.className = "flex-1 py-2.5 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200";
+        
+        timerMetaContainer.classList.remove('hidden');
+        pomoStatusContainer.classList.add('hidden');
+        pomoSettingsInfo.classList.add('hidden');
+        saveTimeBtn.classList.remove('hidden');
+        
+        state.timer.seconds = 0;
+        timerStatus.textContent = "待機中";
+      } else {
+        modeNormalBtn.className = "flex-1 py-2.5 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200";
+        modePomodoroBtn.className = "flex-1 py-2.5 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all bg-brand-500 text-white shadow-sm";
+        
+        timerMetaContainer.classList.add('hidden');
+        pomoStatusContainer.classList.remove('hidden');
+        pomoSettingsInfo.classList.remove('hidden');
+        // ポモドーロは自動遷移なので個別保存ボタンは非表示
+        saveTimeBtn.classList.add('hidden');
+        
+        state.pomodoro.phase = 'work';
+        state.timer.seconds = state.pomodoro.workDuration;
+        updatePomoBadge();
+      }
+      
+      updateTimerDisplay();
+      updateStats(0);
+    }
+
+    // ポモドーロステータス表示の更新
+    function updatePomoBadge() {
+      if (state.pomodoro.phase === 'work') {
+        pomoPhaseBadge.className = "px-4 py-1.5 rounded-full text-xs font-bold tracking-wider flex items-center gap-2 bg-brand-500/10 text-brand-500 dark:bg-brand-500/20";
+        pomoPhaseBadge.innerHTML = `<i data-lucide="book-open" class="w-3.5 h-3.5"></i> 勉強中 (残り${Math.ceil(state.timer.seconds / 60)}分)`;
+        timerStatus.textContent = "ポモドーロ: 勉強フェーズ";
+      } else {
+        pomoPhaseBadge.className = "px-4 py-1.5 rounded-full text-xs font-bold tracking-wider flex items-center gap-2 bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20";
+        pomoPhaseBadge.innerHTML = `<i data-lucide="coffee" class="w-3.5 h-3.5"></i> 休憩中 (残り${Math.ceil(state.timer.seconds / 60)}分)`;
+        timerStatus.textContent = "ポモドーロ: 休憩フェーズ";
+      }
+      lucide.createIcons();
+    }
+
+    // --- タイマー中核ロジック (ミリ秒ベースの安全な時間算出) ---
+    function updateTimerDisplay() {
+      const hours = Math.floor(state.timer.seconds / 3600);
+      const minutes = Math.floor((state.timer.seconds % 3600) / 60);
+      const secs = state.timer.seconds % 60;
+      
+      const formatted = [
+        hours.toString().padStart(2, '0'),
+        minutes.toString().padStart(2, '0'),
+        secs.toString().padStart(2, '0')
+      ].join(':');
+      
+      timerDisplay.textContent = formatted;
+    }
+
+    function toggleTimer() {
+      if (state.timer.isRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      state.timer.isRunning = true;
+      state.timer.startTime = Date.now(); // スタートした瞬間を打刻
+      
+      startIcon.classList.add('hidden');
+      pauseIcon.classList.remove('hidden');
+      startStopText.textContent = "一時停止";
+      startStopBtn.className = "flex-[1.5] py-3 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all";
+
+      if (state.mode === 'normal') {
+        timerStatus.textContent = "勉強中...";
+      } else {
+        updatePomoBadge();
+      }
+
+      // 高精度バックグラウンド対応タイマー
+      state.timer.intervalId = setInterval(() => {
+        // スタートしてからの差分ミリ秒 ＋ 過去の一時停止前に稼いだ累積ミリ秒
+        const currentSegmentElapsed = Date.now() - state.timer.startTime;
+        const totalElapsedMs = state.timer.accumulatedMs + currentSegmentElapsed;
+        const totalElapsedSecs = Math.floor(totalElapsedMs / 1000);
+        
+        if (state.mode === 'normal') {
+          state.timer.seconds = totalElapsedSecs;
+          // 通常タイマーは計測中の時間をそのままリアルタイム変動として反映
+          updateStats(state.timer.seconds);
+        } else {
+          // カウントダウン (ポモドーロ)
+          const maxLimit = state.pomodoro.phase === 'work' ? state.pomodoro.workDuration : state.pomodoro.breakDuration;
+          const remaining = maxLimit - totalElapsedSecs;
+
+          if (state.pomodoro.phase === 'work') {
+            // ポモドーロの勉強時間もリアルタイムで加算
+            updateStats(totalElapsedSecs);
+          } else {
+            // 休憩時間は学習時間に加算しないので 0 で固定反映
+            updateStats(0);
+          }
+
+          if (remaining <= 0) {
+            state.timer.seconds = 0;
+            updateTimerDisplay();
+            handlePomoTransition();
+          } else {
+            state.timer.seconds = remaining;
+          }
+        }
+        updateTimerDisplay();
+      }, 100);
+    }
+
+    function pauseTimer() {
+      if (!state.timer.isRunning) return;
+      
+      // 一時停止するまでの現在のセグメントの経過時間を `accumulatedMs` に加算
+      state.timer.accumulatedMs += (Date.now() - state.timer.startTime);
+      clearInterval(state.timer.intervalId);
+      state.timer.isRunning = false;
+      
+      startIcon.classList.remove('hidden');
+      pauseIcon.classList.add('hidden');
+      startStopText.textContent = "再開";
+      startStopBtn.className = "flex-[1.5] py-3 px-6 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25 transition-all";
+      timerStatus.textContent = "一時停止中";
+
+      // リアルタイム表示に現在の停止中秒数を固定反映
+      const finalSec = Math.floor(state.timer.accumulatedMs / 1000);
+      if (state.mode === 'normal') {
+        updateStats(finalSec);
+      } else if (state.pomodoro.phase === 'work') {
+        updateStats(finalSec);
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(state.timer.intervalId);
+      state.timer.isRunning = false;
+      state.timer.intervalId = null;
+      state.timer.startTime = null;
+      state.timer.accumulatedMs = 0;
+
+      startIcon.classList.remove('hidden');
+      pauseIcon.classList.add('hidden');
+      startStopText.textContent = "計測開始";
+      startStopBtn.className = "flex-[1.5] py-3 px-6 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25 transition-all";
+
+      if (state.mode === 'normal') {
+        state.timer.seconds = 0;
+        timerStatus.textContent = "待機中";
+        subjectInput.value = '';
+      } else {
+        state.pomodoro.phase = 'work';
+        state.timer.seconds = state.pomodoro.workDuration;
+        updatePomoBadge();
+      }
+
+      updateTimerDisplay();
+      updateStats(0); // 計測リセットに合わせたダッシュボードリセット
+    }
+
+    // --- 「勉強時間を保存」ボタンのイベントハンドラー ---
+    function handleSaveButtonClick() {
+      // 稼働中であれば一旦ミリ秒を止めて算出
+      let finalSecs = 0;
+      if (state.timer.isRunning) {
+        const currentSegmentElapsed = Date.now() - state.timer.startTime;
+        finalSecs = Math.floor((state.timer.accumulatedMs + currentSegmentElapsed) / 1000);
+      } else {
+        finalSecs = Math.floor(state.timer.accumulatedMs / 1000);
+      }
+
+      if (finalSecs <= 0) {
+        showToast("お知らせ", "保存する勉強時間がありません。タイマーを進めてください！");
+        return;
+      }
+
+      const subject = subjectInput.value.trim() || '自主学習';
+      
+      // 保存処理
+      saveStudySession(finalSecs, subject);
+      showToast("記録完了！", `${subject}の勉強時間を ${formatSecondsToHM(finalSecs)} 保存しました！🎉`);
+
+      // タイマーを完全初期化
+      resetTimer();
+    }
+
+    // ポモドーロの段階切り替え
+    function handlePomoTransition() {
+      clearInterval(state.timer.intervalId);
+      state.timer.isRunning = false;
+      state.timer.accumulatedMs = 0;
+      state.timer.startTime = null;
+      
+      playNotificationSound();
+
+      if (state.pomodoro.phase === 'work') {
+        // 勉強セッション完了 ➔ 履歴に保存
+        saveStudySession(state.pomodoro.workDuration, "ポモドーロ 勉強セッション");
+        showToast("素晴らしい！", "25分間の勉強セッションを完了し、自動保存しました！5分間の休憩に入りましょう。🍵");
+        
+        state.pomodoro.phase = 'break';
+        state.timer.seconds = state.pomodoro.breakDuration;
+      } else {
+        // 休憩セッション完了
+        showToast("休憩おわり！", "5分間の休憩が終わりました。次の25分間の勉強を始めましょう！📝");
+        
+        state.pomodoro.phase = 'work';
+        state.timer.seconds = state.pomodoro.workDuration;
+      }
+
+      updatePomoBadge();
+      updateTimerDisplay();
+      updateStats(0); // 次のセッション開始時はダッシュボードを一旦0秒加算に戻す
+      
+      // 自動で次のフェーズのタイマーを走らせる
+      setTimeout(() => {
+        startTimer();
+      }, 1000);
+    }
+
+    // --- 学習データの保存と読み込み ---
+    function saveStudySession(seconds, subject) {
+      if (seconds <= 0) return;
+
+      const todayStr = getTodayString();
+      if (!state.history[todayStr]) {
+        state.history[todayStr] = { totalSeconds: 0, logs: [] };
+      }
+
+      state.history[todayStr].totalSeconds += seconds;
+      state.history[todayStr].logs.push({
+        time: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+        subject: subject,
+        seconds: seconds
+      });
+
+      saveDataToLocalStorage();
+      updateStats(0); // 保存されたのでアクティブ計測時間は0としてダッシュボードをリフレッシュ
+      renderCalendar();
+    }
+
+    function getTodayString() {
+      const today = new Date();
+      return `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+    }
+
+    // ローカルストレージへのセーブ
+    function saveDataToLocalStorage() {
+      const payload = {
+        version: APP_VERSION,
+        theme: state.theme,
+        history: state.history
+      };
+      localStorage.setItem('stime_userdata_v1', JSON.stringify(payload));
+    }
+
+    // ローカルストレージからのロード
+    function loadDataFromLocalStorage() {
+      const raw = localStorage.getItem('stime_userdata_v1');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.theme) state.theme = parsed.theme;
+          if (parsed.history) state.history = parsed.history;
+        } catch (e) {
+          console.error("データの読み込みに失敗しました:", e);
+        }
+      }
+    }
+
+    // --- 統計計算・表示 (activeTimerSeconds を受け取ることでリアルタイム自動反映) ---
+    function updateStats(activeTimerSeconds = 0) {
+      const todayStr = getTodayString();
+      const todayData = state.history[todayStr];
+      
+      // 1. 今日1日の勉強時間の変動
+      let savedTodaySeconds = todayData ? todayData.totalSeconds : 0;
+      let displayTodaySeconds = savedTodaySeconds + activeTimerSeconds;
+      
+      todayTotalTime.textContent = formatSecondsToHM(displayTodaySeconds);
+      
+      if (todayData) {
+        todaySessionCount.textContent = `${todayData.logs.length}回` + (activeTimerSeconds > 0 ? " (計測中...)" : "");
+        const lastLog = todayData.logs[todayData.logs.length - 1];
+        latestSubject.textContent = lastLog ? lastLog.subject : 'なし';
+      } else {
+        todaySessionCount.textContent = activeTimerSeconds > 0 ? "0回 (計測中...)" : "0回";
+        latestSubject.textContent = activeTimerSeconds > 0 ? "計測中" : "なし";
+      }
+
+      // 2. トータルの総勉強時間の変動
+      let totalSec = activeTimerSeconds;
+      Object.values(state.history).forEach(day => {
+        totalSec += day.totalSeconds;
+      });
+      allTimeTotal.textContent = formatSecondsToHM(totalSec);
+
+      // 3. 今月の総勉強時間の変動
+      updateMonthTotal(activeTimerSeconds);
+    }
+
+    function updateMonthTotal(activeTimerSeconds = 0) {
+      const year = state.currentDate.getFullYear();
+      const month = state.currentDate.getMonth() + 1;
+      const prefix = `${year}-${month.toString().padStart(2, '0')}`;
+
+      let monthSec = activeTimerSeconds;
+      Object.keys(state.history).forEach(dateStr => {
+        if (dateStr.startsWith(prefix)) {
+          monthSec += state.history[dateStr].totalSeconds;
+        }
+      });
+
+      monthTotalTime.textContent = formatSecondsToHM(monthSec);
+    }
+
+    function formatSecondsToHM(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      return `${h}時間${m.toString().padStart(2, '0')}分`;
+    }
+
+    // カレンダー用簡易表示
+    function formatSecondsToM(seconds) {
+      const m = Math.floor(seconds / 60);
+      return `${m}分`;
+    }
+
+    // --- カレンダー描画機能 ---
+    function renderCalendar() {
+      const year = state.currentDate.getFullYear();
+      const month = state.currentDate.getMonth();
+      
+      calendarCurrentMonth.textContent = `${year}年 ${month + 1}月`;
+      calendarGrid.innerHTML = '';
+
+      // 月の初日の曜日と総日数を取得
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const lastDay = new Date(year, month + 1, 0).getDate();
+
+      // 前月の日付を入れる空のグリッド
+      for (let i = 0; i < firstDayIndex; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = "h-14 md:h-16 rounded-xl bg-slate-100/30 dark:bg-slate-800/10 opacity-30";
+        calendarGrid.appendChild(emptyCell);
+      }
+
+      // 当月の日付
+      for (let day = 1; day <= lastDay; day++) {
+        const dayStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+        const dayData = state.history[dayStr];
+        const isToday = dayStr === getTodayString();
+
+        const cell = document.createElement('div');
+        cell.className = `h-14 md:h-16 p-1 rounded-xl flex flex-col justify-between border transition-all text-left ${
+          isToday 
+            ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/20' 
+            : 'border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20'
+        }`;
+
+        // 日付ラベル
+        const dayLabel = document.createElement('span');
+        dayLabel.className = `text-[10px] md:text-xs font-semibold px-1 rounded ${
+          isToday ? 'bg-brand-500 text-white' : 'text-slate-400 dark:text-slate-500'
+        }`;
+        dayLabel.textContent = day;
+        cell.appendChild(dayLabel);
+
+        // その日の勉強時間表示
+        if (dayData && dayData.totalSeconds > 0) {
+          const timeLabel = document.createElement('span');
+          timeLabel.className = "text-[9px] md:text-[10px] font-bold text-center block bg-brand-500/10 text-brand-500 dark:bg-brand-500/20 rounded-md py-0.5 px-1 mt-1 truncate";
+          timeLabel.textContent = formatSecondsToM(dayData.totalSeconds);
+          timeLabel.title = `合計: ${formatSecondsToHM(dayData.totalSeconds)}`;
+          cell.appendChild(timeLabel);
+
+          // ホバーでやった科目ポップアップ
+          const subjects = dayData.logs.map(log => log.subject).join(', ');
+          cell.setAttribute('title', `${dayStr}\n${formatSecondsToHM(dayData.totalSeconds)}\n内容: ${subjects}`);
+        } else {
+          // 勉強しなかった日用のプレースホルダー
+          const placeholder = document.createElement('div');
+          placeholder.className = "h-4";
+          cell.appendChild(placeholder);
+        }
+
+        calendarGrid.appendChild(cell);
+      }
+
+      updateMonthTotal(0);
+    }
+
+    function navigateMonth(direction) {
+      state.currentDate.setMonth(state.currentDate.getMonth() + direction);
+      renderCalendar();
+    }
+
+    // --- 音声生成通知 (ポモドーロ完了通知用) ---
+    function playNotificationSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.15);
+          
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + idx * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + idx * 0.15 + 0.3);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          osc.start(ctx.currentTime + idx * 0.15);
+          osc.stop(ctx.currentTime + idx * 0.15 + 0.35);
+        });
+      } catch (e) {
+        console.warn("通知音の再生に失敗しました（ユーザーのブラウザ対話制限のため）");
+      }
+    }
+
+    // --- 集中BGM (Web Audio API によるリアルタイム合成) ---
+    function initAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function toggleSound(soundKey, button) {
+      initAudioContext();
+      const sound = activeSounds[soundKey];
+
+      if (sound.isPlaying) {
+        // 音声を停止
+        stopSound(soundKey);
+        button.innerHTML = `<i data-lucide="play" class="w-3.5 h-3.5"></i>`;
+        button.className = "sound-toggle-btn p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300";
+      } else {
+        // 音声を再生
+        playSound(soundKey);
+        button.innerHTML = `<i data-lucide="square" class="w-3.5 h-3.5"></i>`;
+        button.className = "sound-toggle-btn p-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white transition-colors";
+      }
+      lucide.createIcons();
+      updateAudioIndicator();
+    }
+
+    function updateAudioIndicator() {
+      const isAnyPlaying = Object.values(activeSounds).some(s => s.isPlaying);
+      if (isAnyPlaying) {
+        audioIndicator.classList.remove('hidden');
+      } else {
+        audioIndicator.classList.add('hidden');
+      }
+    }
+
+    function playSound(soundKey) {
+      const sound = activeSounds[soundKey];
+      sound.isPlaying = true;
+
+      sound.gain = audioCtx.createGain();
+      const volInput = document.querySelector(`input[data-volume="${soundKey}"]`);
+      sound.gain.gain.value = volInput ? parseFloat(volInput.value) : 0.5;
+
+      if (soundKey === 'white') {
+        const bufferSize = 2 * audioCtx.sampleRate;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const whiteNoise = audioCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        whiteNoise.loop = true;
+        whiteNoise.connect(sound.gain);
+        sound.gain.connect(audioCtx.destination);
+        whiteNoise.start();
+        sound.node = whiteNoise;
+        
+      } else if (soundKey === 'rain') {
+        const bufferSize = 2 * audioCtx.sampleRate;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        let b0, b1, b2, b3, b4, b5, b6;
+        b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+          output[i] *= 0.11;
+          b6 = white * 0.115926;
+        }
+        const rainNode = audioCtx.createBufferSource();
+        rainNode.buffer = noiseBuffer;
+        rainNode.loop = true;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+
+        rainNode.connect(filter);
+        filter.connect(sound.gain);
+        sound.gain.connect(audioCtx.destination);
+        rainNode.start();
+        sound.node = rainNode;
+
+      } else if (soundKey === 'cafe') {
+        const cafeGroup = audioCtx.createGain();
+        const bufferSize = 2 * audioCtx.sampleRate;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          output[i] = (lastOut + (0.02 * white)) / 1.02;
+          lastOut = output[i];
+          output[i] *= 3.5;
+        }
+        const lowNoise = audioCtx.createBufferSource();
+        lowNoise.buffer = noiseBuffer;
+        lowNoise.loop = true;
+        
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+
+        lowNoise.connect(filter);
+        filter.connect(cafeGroup);
+
+        const interval = setInterval(() => {
+          if (!sound.isPlaying) {
+            clearInterval(interval);
+            return;
+          }
+          if (Math.random() > 0.4) {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.connect(g);
+            g.connect(cafeGroup);
+
+            const isMetal = Math.random() > 0.6;
+            osc.frequency.setValueAtTime(isMetal ? 2000 + Math.random() * 1500 : 300 + Math.random() * 200, audioCtx.currentTime);
+            
+            g.gain.setValueAtTime(0.0, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(isMetal ? 0.05 : 0.15, audioCtx.currentTime + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (isMetal ? 0.15 : 0.08));
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+          }
+        }, 800);
+
+        lowNoise.start();
+        cafeGroup.connect(sound.gain);
+        sound.gain.connect(audioCtx.destination);
+        
+        sound.node = {
+          stop: () => {
+            lowNoise.stop();
+            clearInterval(interval);
+          }
+        };
+
+      } else if (soundKey === 'forest') {
+        const forestGroup = audioCtx.createGain();
+        const bufferSize = 2 * audioCtx.sampleRate;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+          output[i] *= 0.04;
+          b6 = white * 0.115926;
+        }
+        const wind = audioCtx.createBufferSource();
+        wind.buffer = noiseBuffer;
+        wind.loop = true;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 500;
+        filter.Q.value = 1.0;
+
+        const lfo = audioCtx.createOscillator();
+        lfo.frequency.value = 0.1;
+        const lfoGain = audioCtx.createGain();
+        lfoGain.gain.value = 250;
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
+
+        wind.connect(filter);
+        filter.connect(forestGroup);
+        
+        lfo.start();
+        wind.start();
+
+        const birdInterval = setInterval(() => {
+          if (!sound.isPlaying) {
+            clearInterval(birdInterval);
+            return;
+          }
+          if (Math.random() > 0.6) {
+            const now = audioCtx.currentTime;
+            const birdOsc = audioCtx.createOscillator();
+            const birdGain = audioCtx.createGain();
+
+            birdOsc.type = 'sine';
+            birdOsc.frequency.setValueAtTime(3000 + Math.random() * 800, now);
+            birdOsc.frequency.exponentialRampToValueAtTime(4500 + Math.random() * 500, now + 0.1);
+            birdOsc.frequency.exponentialRampToValueAtTime(3500, now + 0.25);
+
+            birdGain.gain.setValueAtTime(0, now);
+            birdGain.gain.linearRampToValueAtTime(0.04, now + 0.05);
+            birdGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+            birdOsc.connect(birdGain);
+            birdGain.connect(forestGroup);
+
+            birdOsc.start();
+            birdOsc.stop(now + 0.35);
+          }
+        }, 1500);
+
+        forestGroup.connect(sound.gain);
+        sound.gain.connect(audioCtx.destination);
+
+        sound.node = {
+          stop: () => {
+            wind.stop();
+            lfo.stop();
+            clearInterval(birdInterval);
+          }
+        };
+      }
+    }
+
+    function stopSound(soundKey) {
+      const sound = activeSounds[soundKey];
+      if (sound.node) {
+        try {
+          sound.node.stop();
+        } catch (e) {}
+        sound.node = null;
+      }
+      sound.isPlaying = false;
+    }
+
+    function setSoundVolume(soundKey, volume) {
+      const sound = activeSounds[soundKey];
+      if (sound.isPlaying && sound.gain) {
+        sound.gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      }
+    }
+
+    // --- ファイルのインポート & エクスポート ---
+    function exportDataToFile() {
+      const payload = {
+        app: "STime",
+        version: APP_VERSION,
+        exportedAt: new Date().toISOString(),
+        history: state.history
+      };
+
+      const jsonStr = JSON.stringify(payload, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `STime_backup_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast("エクスポート完了", "学習データをファイルとして正常に保存しました。");
+    }
+
+    function importDataFromFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          
+          if (parsed.app === "STime" && parsed.history) {
+            const overwrite = confirm("既存の学習データを消去して、ファイルを完全に復元しますか？\n「キャンセル」を選択した場合は、日付を統合・マージします。");
+            
+            if (overwrite) {
+              state.history = parsed.history;
+            } else {
+              Object.keys(parsed.history).forEach(date => {
+                if (state.history[date]) {
+                  state.history[date].totalSeconds += parsed.history[date].totalSeconds;
+                  state.history[date].logs = [...state.history[date].logs, ...parsed.history[date].logs];
+                } else {
+                  state.history[date] = parsed.history[date];
+                }
+              });
+            }
+
+            saveDataToLocalStorage();
+            updateStats(0);
+            renderCalendar();
+            showToast("インポート成功", "ファイルを読み込み、学習データを復元しました。");
+          } else {
+            showToast("エラー", "STime専用のバックアップファイルではありません。", 5000);
+          }
+        } catch (err) {
+          showToast("エラー", "ファイルの解析に失敗しました。ファイルが破損している可能性があります。", 5000);
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+  </script>
+</body>
+</html>
